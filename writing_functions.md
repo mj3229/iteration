@@ -106,7 +106,23 @@ mean_and_sd = function(x) {
   mean_x = mean(x)
   sd_x = sd(x)
 
-  list(mean = mean_x, 
-       sd = sd_x)
+  tibble(
+    mean = mean_x, 
+    sd = sd_x
+  )
 }
 ```
+
+Check that the function works
+
+``` r
+x_vec = rnorm(1000)
+mean_and_sd(x_vec)
+```
+
+    ## # A tibble: 1 × 2
+    ##      mean    sd
+    ##     <dbl> <dbl>
+    ## 1 -0.0243  1.01
+
+## Multiple Inputs
