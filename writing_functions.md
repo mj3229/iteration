@@ -300,3 +300,17 @@ global environment and x is 2 because x=y. so answer for this is 4. “The
 best advice I have is to give your arguments useful names and think
 carefully about where everything is defined, and to periodically restart
 R and try everything again!”
+
+## Functions as arguments
+
+``` r
+x_vec = rnorm(25, 0, 1)
+
+my_summary = function(x, summ_func) {
+  summ_func(x)
+}
+
+my_summary(x_vec, sd)
+```
+
+    ## [1] 0.8779547
