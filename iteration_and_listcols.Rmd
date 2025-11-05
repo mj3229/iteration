@@ -134,3 +134,85 @@ listcol_df =
 listcol_df
 ```
 
+## Nested Data
+
+```{r}
+library(p8105.datasets)
+data("weather_df")
+```
+
+```{r}
+weather_nest = 
+  nest(weather_df, data = date:tmin)
+
+weather_nest
+
+weather_nest |> pull(name)
+weather_nest |> pull(data)
+```
+
+## unnest
+ 
+```{r}
+unnest(weather_nest, cols = data)
+```
+ 
+## linear reg
+
+Suppose we want to fit the simple linear regression relating tmax to tmin for each station-specific data frame.
+
+```{r}
+weather_lm = function(df) {
+  lm(tmax ~ tmin, data = df)
+}
+
+weather_lm(pull(weather_nest, data)[[1]])
+map(pull(weather_nest, data), weather_lm)
+map(pull(weather_nest, data), \(df) lm(tmax ~ tmin, data = df))
+```
+
+What about a map in a list column? 
+
+```{r}
+weather_nest = 
+  weather_nest |> 
+  mutate(models = map(data, weather_lm))
+
+weather_nest
+```
+
+## Iteration for data import
+
+```{r}
+full_df = 
+  tibble(
+    files = list.files("data/exp_data/"),
+    path = str_c("data/exp_data/", files)
+  ) %>% 
+  mutate(data = map(path, read_csv)) %>% 
+  unnest()
+```
+
+```{r}
+tidy_df = 
+  full_df %>% 
+  mutate(
+    files = str_replace(files, ".csv", ""),
+    group = str_sub(files, 1, 3)) %>% 
+  pivot_longer(
+    week_1:week_8,
+    names_to = "week",
+    values_to = "outcome",
+    names_prefix = "week_") %>% 
+  mutate(week = as.numeric(week)) %>% 
+  select(group, subj = files, week, outcome)
+```
+
+```{r}
+tidy_df %>% 
+  ggplot(aes(x = week, y = outcome, group = subj, color = group)) + 
+  geom_point() + 
+  geom_path() + 
+  facet_grid(~group)
+```
+
