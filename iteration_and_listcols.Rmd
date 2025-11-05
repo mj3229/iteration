@@ -1,5 +1,5 @@
 ---
-title: "Iterations and Listcols"
+title: "Simulations"
 output: github_document
 ---
 
@@ -10,209 +10,64 @@ library(rvest)
 set.seed(1)
 ```
 
-## Lists
-
-You can put anything into lists
+## Mean and SD for one n
 
 ```{r}
-vec_numeric = 5:8
-vec_char = c("My", "name", "is", "Jeff")
-vec_logical = c(TRUE, TRUE, TRUE, FALSE)
-```
-
-```{r}
-l = list(
-  vec_numeric = 5:8,
-  mat         = matrix(1:8, 2, 4),
-  vec_logical = c(TRUE, FALSE),
-  summary     = summary(rnorm(1000)))
-l
-
-l$vec_numeric
-l[[1]]
-l[[1]][1:3]
-```
-
-Lists can be accessed using names/indices 
-
-## `for` loops
-
-```{r}
-list_norms = 
-  list(
-    a = rnorm(20, 3, 1),
-    b = rnorm(20, 0, 5),
-    c = rnorm(20, 10, .2),
-    d = rnorm(20, -3, 1)
-  )
-
-is.list(list_norms)
-```
-
-apply function to each element of the list 
-
-```{r}
-mean_and_sd = function(x) {
+sim_mean_sd = function(n, mu = 2, sigma = 3) {
   
-  if (!is.numeric(x)) {
-    stop("Argument x should be numeric")
-  } else if (length(x) == 1) {
-    stop("Cannot be computed for length 1 vectors")
-  }
+  sim_data = tibble(
+    x = rnorm(n, mean = mu, sd = sigma),
+  )
   
-  mean_x = mean(x)
-  sd_x = sd(x)
-
-  tibble(
-    mean = mean_x, 
-    sd = sd_x
-  )
-}
-
-mean_and_sd(list_norms[[1]])
-mean_and_sd(list_norms[[2]])
-mean_and_sd(list_norms[[3]])
-mean_and_sd(list_norms[[4]])
-```
-
-Let's use a for loop:
-
-```{r}
-output = vector("list", length = 4)
-
-for (i in 1:4) {
-  output[[i]] = mean_and_sd(list_norms[[i]])
+  sim_data |> 
+    summarize(
+      mu_hat = mean(x),
+      sigma_hat = sd(x)
+    )
 }
 ```
 
-## Let's try map!
-
+let's run it a 100 times "simulate" with a `for` loop
 ```{r}
-output = map(list_norms, mean_and_sd)
-```
+output = vector("list", 100)
 
-## Map variants
-
-```{r}
-output = map_dbl(list_norms, median, .id = "input")
-
-output = map_dfr(list_norms, mean_and_sd, .id = "input")
-```
-
-## List columns
-
-```{r}
-listcol_df = 
-  tibble(
-    name = c("a", "b", "c", "d"),
-    samp = list_norms
-  )
-
-listcol_df |> pull(name)
-listcol_df |> pull(samp)
-```
-
-Let's try some operations
-
-```{r}
-mean_and_sd(pull(listcol_df, samp)[[1]])
-```
-
-Can i just map instead of pulling each one sep? 
-
-```{r}
-map(pull(listcol_df, samp), mean_and_sd)
-```
-
-can we add a list column? 
-
-```{r}
-listcol_df = 
-  listcol_df |> 
-  mutate(summary = map(samp, mean_and_sd))
-
-listcol_df
-```
-
-## Nested Data
-
-```{r}
-library(p8105.datasets)
-data("weather_df")
-```
-
-```{r}
-weather_nest = 
-  nest(weather_df, data = date:tmin)
-
-weather_nest
-
-weather_nest |> pull(name)
-weather_nest |> pull(data)
-```
-
-## unnest
- 
-```{r}
-unnest(weather_nest, cols = data)
-```
- 
-## linear reg
-
-Suppose we want to fit the simple linear regression relating tmax to tmin for each station-specific data frame.
-
-```{r}
-weather_lm = function(df) {
-  lm(tmax ~ tmin, data = df)
+for (i in 1:100) {
+  output[[i]] = sim_mean_sd(30)
 }
 
-weather_lm(pull(weather_nest, data)[[1]])
-map(pull(weather_nest, data), weather_lm)
-map(pull(weather_nest, data), \(df) lm(tmax ~ tmin, data = df))
-```
-
-What about a map in a list column? 
-
-```{r}
-weather_nest = 
-  weather_nest |> 
-  mutate(models = map(data, weather_lm))
-
-weather_nest
-```
-
-## Iteration for data import
-
-```{r}
-full_df = 
-  tibble(
-    files = list.files("data/exp_data/"),
-    path = str_c("data/exp_data/", files)
-  ) %>% 
-  mutate(data = map(path, read_csv)) %>% 
-  unnest()
+sim_results = bind_rows(output)
 ```
 
 ```{r}
-tidy_df = 
-  full_df %>% 
+sim_results_df = 
+  expand_grid(
+    sample_size = 30,
+    iter = 1:100
+  ) |> 
   mutate(
-    files = str_replace(files, ".csv", ""),
-    group = str_sub(files, 1, 3)) %>% 
-  pivot_longer(
-    week_1:week_8,
-    names_to = "week",
-    values_to = "outcome",
-    names_prefix = "week_") %>% 
-  mutate(week = as.numeric(week)) %>% 
-  select(group, subj = files, week, outcome)
+    estimate_df = map(sample_size, sim_mean_sd)
+  ) |> 
+  unnest(estimate_df)
 ```
 
+
+ 
 ```{r}
-tidy_df %>% 
-  ggplot(aes(x = week, y = outcome, group = subj, color = group)) + 
-  geom_point() + 
-  geom_path() + 
-  facet_grid(~group)
+sim_results_df |> 
+  ggplot(aes(x = mu_hat)) + 
+  geom_density()
+```
+ 
+```{r}
+sim_results_df |> 
+  pivot_longer(
+    mu_hat:sigma_hat,
+    names_to = "parameter", 
+    values_to = "estimate") |> 
+  group_by(parameter) |> 
+  summarize(
+    emp_mean = mean(estimate),
+    emp_sd = sd(estimate)) |> 
+  knitr::kable(digits = 3)
 ```
 
