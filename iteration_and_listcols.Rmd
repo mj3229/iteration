@@ -1,5 +1,5 @@
 ---
-  title: "Iterations and Listcols"
+title: "Iterations and Listcols"
 output: github_document
 ---
 
@@ -89,5 +89,48 @@ for (i in 1:4) {
 
 ```{r}
 output = map(list_norms, mean_and_sd)
+```
+
+## Map variants
+
+```{r}
+output = map_dbl(list_norms, median, .id = "input")
+
+output = map_dfr(list_norms, mean_and_sd, .id = "input")
+```
+
+## List columns
+
+```{r}
+listcol_df = 
+  tibble(
+    name = c("a", "b", "c", "d"),
+    samp = list_norms
+  )
+
+listcol_df |> pull(name)
+listcol_df |> pull(samp)
+```
+
+Let's try some operations
+
+```{r}
+mean_and_sd(pull(listcol_df, samp)[[1]])
+```
+
+Can i just map instead of pulling each one sep? 
+
+```{r}
+map(pull(listcol_df, samp), mean_and_sd)
+```
+
+can we add a list column? 
+
+```{r}
+listcol_df = 
+  listcol_df |> 
+  mutate(summary = map(samp, mean_and_sd))
+
+listcol_df
 ```
 
