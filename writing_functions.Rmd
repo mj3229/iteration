@@ -102,3 +102,130 @@ sim_mean_sd = function(n, mu = 2, sigma = 3) {
 sim_mean_sd(30, 5, 1)
 ```
 
+## let's review old example
+
+```{r}
+fellowship_ring = readxl::read_excel("./data/lotr.xlsx", range = "B3:D6") |>
+  mutate(movie = "fellowship_ring")
+
+two_towers = readxl::read_excel("./data/lotr.xlsx", range = "F3:H6") |>
+  mutate(movie = "two_towers")
+
+return_king = readxl::read_excel("./data/lotr.xlsx", range = "J3:L6") |>
+  mutate(movie = "return_king")
+
+lotr_tidy = bind_rows(fellowship_ring, two_towers, return_king) |>
+  janitor::clean_names() |>
+  pivot_longer(
+    female:male,
+    names_to = "sex",
+    values_to = "words") |> 
+  mutate(race = str_to_lower(race)) |> 
+  select(movie, everything()) 
+```
+
+## function
+
+```{r}
+lotr_load_and_tidy = function(path, range, movie_name) {
+  
+  df = 
+    readxl::read_excel(path, range = range) |>
+    janitor::clean_names() |>
+    pivot_longer(
+      female:male,
+      names_to = "sex",
+      values_to = "words") |>
+    mutate(
+      race = str_to_lower(race),
+      movie = movie_name) |> 
+    select(movie, everything())
+  
+  df
+  
+}
+
+lotr_tidy = 
+  bind_rows(
+    lotr_load_and_tidy("data/lotr.xlsx", "B3:D6", "fellowship_ring"),
+    lotr_load_and_tidy("data/lotr.xlsx", "F3:H6", "two_towers"),
+    lotr_load_and_tidy("data/lotr.xlsx", "J3:L6", "return_king"))
+```
+
+## Reading from the web
+
+```{r}
+nsduh_url = "http://samhda.s3-us-gov-west-1.amazonaws.com/s3fs-public/field-uploads/2k15StateFiles/NSDUHsaeShortTermCHG2015.htm"
+
+nsduh_html = read_html(nsduh_url)
+
+data_marj = 
+  nsduh_html |> 
+  html_table() |> 
+  nth(1) |>
+  slice(-1) |> 
+  select(-contains("P Value")) |>
+  pivot_longer(
+    -State,
+    names_to = "age_year", 
+    values_to = "percent") |>
+  separate(age_year, into = c("age", "year"), sep = "\\(") |>
+  mutate(
+    year = str_replace(year, "\\)", ""),
+    percent = str_replace(percent, "[a-c]$", ""),
+    percent = as.numeric(percent)) |>
+  filter(!(State %in% c("Total U.S.", "Northeast", "Midwest", "South", "West")))
+```
+
+## function
+
+```{r}
+nsduh_table <- function(html, table_num, table_name) {
+  
+  table = 
+    html |> 
+    html_table() |> 
+    nth(table_num) |>
+    slice(-1) |> 
+    select(-contains("P Value")) |>
+    pivot_longer(
+      -State,
+      names_to = "age_year", 
+      values_to = "percent") |>
+    separate(age_year, into = c("age", "year"), sep = "\\(") |>
+    mutate(
+      year = str_replace(year, "\\)", ""),
+      percent = str_replace(percent, "[a-c]$", ""),
+      percent = as.numeric(percent),
+      name = table_name) |>
+    filter(!(State %in% c("Total U.S.", "Northeast", "Midwest", "South", "West")))
+  
+  table
+  
+}
+
+
+nsduh_results = 
+  bind_rows(
+    nsduh_table(nsduh_html, 1, "marj_one_year"),
+    nsduh_table(nsduh_html, 4, "cocaine_one_year"),
+    nsduh_table(nsduh_html, 5, "heroin_one_year")
+  )
+```
+
+## mean scoping
+
+```{r}
+f = function(x) {
+  z = x + y
+  z
+}
+
+x = 1
+y = 2
+
+f(x = y)
+```
+
+y isn't defined here inside the environment so it takes it from the global environment and x is 2 because x=y. so answer for this is 4. "The best advice I have is to give your arguments useful names and think carefully about where everything is defined, and to periodically restart R and try everything again!"
+
